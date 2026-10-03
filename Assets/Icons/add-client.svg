@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <style type="text/css">.Blue{fill:#1177D7;}.Yellow{fill:#FFB115;}.Red{fill:#D11C1C;}.Green{fill:#039C23;}.Black{fill:#727272;}.White{fill:#FFFFFF;}.st0{opacity:0.5;}.st1{opacity:0.75;}</style>
+  <circle class="Blue" cx="12" cy="9" r="4.5"/>
+  <path class="Blue" d="M3 25 C3 18 21 18 21 25 L21 27 L3 27 Z"/>
+  <circle class="Green" cx="23" cy="22" r="6.5"/>
+  <rect class="White" x="22" y="18" width="2" height="8"/>
+  <rect class="White" x="19" y="21" width="8" height="2"/>
+</svg>

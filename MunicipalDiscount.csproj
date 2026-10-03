@@ -1,0 +1,73 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="_APIכתיבת.cs" />
+    <Compile Remove="MunicipalDiscount.SecretsSetup\**" />
+    <EmbeddedResource Remove="MunicipalDiscount.SecretsSetup\**" />
+    <None Remove="MunicipalDiscount.SecretsSetup\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Database\MunicipalDiscount.accdb" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\Icons\*.svg" />
+  </ItemGroup>
+
+  <!-- The import scripts ship with the application. They used to be left
+       wherever someone had put them, with tbMainParameters.PythonScriptsPath
+       pointing at that folder — so a fresh install had a working exe and no
+       scripts, and every import button failed until the parameter was set by
+       hand. Now they land beside the exe on every build and the parameter is
+       only an override. __pycache__ is deliberately not included. -->
+  <ItemGroup>
+    <Content Include="PythonScripts\*.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>PythonScripts\%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
+    <PackageReference Include="DevExpress.Win.Grid" Version="25.2.3" />
+    <PackageReference Include="DevExpress.Win.Navigation.es" Version="25.2.3" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Database\" />
+    <Folder Include="SqlScripts\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

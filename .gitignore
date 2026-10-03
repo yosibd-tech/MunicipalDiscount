@@ -1,0 +1,31 @@
+﻿# Build output
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+.vs/
+
+# Secrets — never commit (connection settings carry the encrypted SA password)
+appsettings.json
+appsettings.*.json
+!appsettings.json.template
+!appsettings.*.template.json
+
+# Per-user form layout files (runtime-generated)
+*_size.json
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Python bytecode cache
+__pycache__/
+*.pyc
+
+# NuGet
+packages/
+*.nupkg
+
+# Word/Excel lock files
+~$*

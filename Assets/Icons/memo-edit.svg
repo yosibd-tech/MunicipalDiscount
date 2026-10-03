@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <style type="text/css">.Blue{fill:#1177D7;}.Yellow{fill:#FFB115;}.Red{fill:#D11C1C;}.Green{fill:#039C23;}.Black{fill:#727272;}.White{fill:#FFFFFF;}.st0{opacity:0.5;}.st1{opacity:0.75;}</style>
+  <rect class="Blue st0" x="6" y="4" width="15" height="24" rx="1"/>
+  <rect class="Black st1" x="9" y="9" width="9" height="1.6"/>
+  <rect class="Black st1" x="9" y="13" width="9" height="1.6"/>
+  <rect class="Black st1" x="9" y="17" width="6" height="1.6"/>
+  <polygon class="Yellow" points="16.5,25 24,17.5 26,19.5 18.5,27"/>
+  <polygon class="Black" points="15,28.5 16.5,25 18.5,27"/>
+</svg>

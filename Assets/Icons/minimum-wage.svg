@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <style type="text/css">.Blue{fill:#1177D7;}.Yellow{fill:#FFB115;}.Red{fill:#D11C1C;}.Green{fill:#039C23;}.Black{fill:#727272;}.White{fill:#FFFFFF;}.st0{opacity:0.5;}.st1{opacity:0.75;}</style>
+  <ellipse class="Yellow" cx="16" cy="23" rx="10" ry="4"/>
+  <ellipse class="Yellow" cx="16" cy="19" rx="10" ry="4"/>
+  <ellipse class="Yellow" cx="16" cy="14" rx="10" ry="4"/>
+  <ellipse class="White st1" cx="16" cy="13.5" rx="10" ry="3.6"/>
+  <rect class="Black" x="12" y="10.8" width="8" height="1.6"/>
+  <rect class="Black" x="12" y="10.8" width="1.6" height="6"/>
+  <rect class="Black" x="18.4" y="10.8" width="1.6" height="6"/>
+</svg>
