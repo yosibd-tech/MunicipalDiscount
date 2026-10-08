@@ -112,8 +112,9 @@ namespace MunicipalDiscount
                 using (SqlConnection connection = new SqlConnection(DatabaseConfig.ConnectionString))
                 {
                     connection.Open();
-                    EnsureTablesExist(connection);
 
+                    // tbUsers / tbUserPermissions and the default admin come from
+                    // the installer's database scripts — the app creates nothing.
                     string query = @"SELECT ID, IdentityCard, FullName
                                      FROM tbUsers
                                      WHERE Username = @username AND Password = @password AND IsActive = 1";
@@ -152,54 +153,6 @@ namespace MunicipalDiscount
         private void InitializeComponent()
         {
 
-        }
-
-        private void EnsureTablesExist(SqlConnection connection)
-        {
-            // Batch 1: Create tbUsers table
-            string createUsers = @"
-                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'tbUsers')
-                BEGIN
-                    CREATE TABLE tbUsers (
-                        ID INT IDENTITY(1,1) PRIMARY KEY,
-                        Username NVARCHAR(50) NOT NULL UNIQUE,
-                        Password NVARCHAR(100) NOT NULL,
-                        FullName NVARCHAR(100) NOT NULL,
-                        IdentityCard NVARCHAR(20) NULL,
-                        IsAdmin BIT NOT NULL DEFAULT 0,
-                        IsActive BIT NOT NULL DEFAULT 1
-                    );
-                END";
-            new SqlCommand(createUsers, connection).ExecuteNonQuery();
-
-            // Batch 1b: Add IdentityCard column if missing (table may have been created without it)
-            string addIdentityCard = @"
-                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tbUsers') AND name = 'IdentityCard')
-                    ALTER TABLE tbUsers ADD IdentityCard NVARCHAR(20) NULL;";
-            new SqlCommand(addIdentityCard, connection).ExecuteNonQuery();
-
-            // Batch 2: Create permissions table
-            string createPerms = @"
-                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'tbUserPermissions')
-                BEGIN
-                    CREATE TABLE tbUserPermissions (
-                        ID INT IDENTITY(1,1) PRIMARY KEY,
-                        UserId INT NOT NULL,
-                        PermissionKey NVARCHAR(50) NOT NULL,
-                        CONSTRAINT FK_UserPermissions_Users FOREIGN KEY (UserId) REFERENCES tbUsers(ID),
-                        CONSTRAINT UQ_UserPermission UNIQUE (UserId, PermissionKey)
-                    );
-                END";
-            new SqlCommand(createPerms, connection).ExecuteNonQuery();
-
-            // Batch 3: Default admin user if none exist
-            string defaultAdmin = @"
-                IF NOT EXISTS (SELECT 1 FROM tbUsers)
-                BEGIN
-                    INSERT INTO tbUsers (Username, Password, FullName, IdentityCard, IsAdmin, IsActive)
-                    VALUES (N'admin', N'admin', N'מנהל מערכת', N'000000000', 1, 1);
-                END";
-            new SqlCommand(defaultAdmin, connection).ExecuteNonQuery();
         }
     }
 }

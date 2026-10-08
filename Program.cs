@@ -58,6 +58,42 @@ namespace MunicipalDiscount
                 DatabaseConfig.Reset();
             }
 
+            // The database is built and upgraded only by the installer; the app
+            // checks its version and changes nothing. A database that wasn't
+            // installed, or is older than this build, stops here before any
+            // table is read.
+            while (true)
+            {
+                DbCheckResult check;
+                try
+                {
+                    check = DbVersionCheck.Check();
+                }
+                catch (Exception ex)
+                {
+                    if (MessageBox.Show(
+                            $"לא ניתן להתחבר למסד הנתונים:\n{ex.Message}\n\nלפתוח את מסך הגדרות החיבור?",
+                            "מסד הנתונים", MessageBoxButtons.YesNo, MessageBoxIcon.Error) != DialogResult.Yes)
+                        return;
+                    using var setup = new ConnectionSetupForm();
+                    setup.ShowDialog();
+                    DatabaseConfig.Reset();
+                    if (!DatabaseConfig.TryLoad(out _)) return;
+                    continue;
+                }
+
+                if (check.State is DbState.NotInstalled or DbState.Older)
+                {
+                    MessageBox.Show(check.Message, "מסד הנתונים", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                if (check.State == DbState.Newer &&
+                    MessageBox.Show(check.Message + "\n\nלהמשיך בכל זאת?", "מסד הנתונים",
+                        MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                    return;
+                break;
+            }
+
             // Parameters first: EnsureAll needs the configured folder paths,
             // and it used to run before they were ever read.
             ManParameters.Load();

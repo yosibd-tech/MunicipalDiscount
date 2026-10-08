@@ -253,6 +253,9 @@ namespace MunicipalDiscount
 
         private const string ByClient = @" ORDER BY c.ClientNumber, y.AssetNumber";
 
+        // The database structure comes only from the installer's numbered
+        // scripts; a missing object means that step hasn't run on this database.
+        private const string DbFixHint = "יש להריץ את תוכנת ההתקנה — כפתור \"יצירה / עדכון מסד נתונים\"";
         private void CheckSchema(SqlConnection conn)
         {
             const string g = "סכמה";
@@ -261,20 +264,20 @@ namespace MunicipalDiscount
             Add(g, "tbYearlyDiscounts.AssetCode",
                 assetCode ? CheckStatus.Ok : CheckStatus.Error,
                 assetCode ? "קיימת" : "חסרה — בלעדיה אי אפשר לדעת אילו נכסים הם מגורים",
-                assetCode ? "" : "יש להריץ SQL\\2026-09_YearlyDiscounts_AssetCode.sql");
+                assetCode ? "" : DbFixHint);
 
             bool criteriaCode = ColumnExists(conn, "tbIncomeDiscountCriteria", "MunicipalDiscountCode");
             Add(g, "tbIncomeDiscountCriteria.MunicipalDiscountCode",
                 criteriaCode ? CheckStatus.Ok : CheckStatus.Error,
                 criteriaCode ? "קיימת" : "חסרה — בדיקת הזכאות לא תדע לאיזה קוד המדרגה מזכה",
-                criteriaCode ? "" : "יש להריץ SQL\\2026-09b_IncomeCriteria_MunicipalDiscountCode.sql");
+                criteriaCode ? "" : DbFixHint);
 
             int view = Scalar(conn,
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'vwDiscountRateAsOf'");
             Add(g, "vwDiscountRateAsOf",
                 view > 0 ? CheckStatus.Ok : CheckStatus.Error,
                 view > 0 ? "קיים" : "חסר — אי אפשר לקבוע איזו גרסת תעריף חלה",
-                view > 0 ? "" : "יש להריץ SQL\\2026-08b_Rename_tbDiscountCodeRates.sql");
+                view > 0 ? "" : DbFixHint);
 
             try
             {

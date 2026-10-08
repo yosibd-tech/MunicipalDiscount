@@ -13,6 +13,9 @@
     <Compile Remove="MunicipalDiscount.SecretsSetup\**" />
     <EmbeddedResource Remove="MunicipalDiscount.SecretsSetup\**" />
     <None Remove="MunicipalDiscount.SecretsSetup\**" />
+    <!-- The last database script this build needs (DbVersionCheck). Set only by
+         build_install_package.ps1 (-p:RequiredDbScript=NNNN_name.sql). -->
+    <AssemblyMetadata Include="RequiredDbScript" Value="$(RequiredDbScript)" Condition="'$(RequiredDbScript)' != ''" />
   </ItemGroup>
 
   <ItemGroup>
