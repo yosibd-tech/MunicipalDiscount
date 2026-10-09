@@ -1326,6 +1326,17 @@ namespace MunicipalDiscount
         {
             ApplyAdminVisibility();
             LoadYearDropdown();
+
+            // Backup warning for administrators (BackupStatus): the shared
+            // database is backed up weekly by the collection app.
+            if (PermissionManager.IsAdmin)
+                Shown += (s, ev) =>
+                {
+                    string warning = BackupStatus.Warning();
+                    if (warning != null)
+                        XtraMessageBox.Show(this, warning, "גיבוי מסד הנתונים",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                };
         }
         private void LoadYearDropdown()
         {
