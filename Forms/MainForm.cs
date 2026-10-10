@@ -1332,7 +1332,7 @@ namespace MunicipalDiscount
             if (PermissionManager.IsAdmin)
                 Shown += (s, ev) =>
                 {
-                    string warning = BackupStatus.Warning();
+                    string warning = BackupStatus.WarningForLogin();
                     if (warning != null)
                         XtraMessageBox.Show(this, warning, "גיבוי מסד הנתונים",
                             MessageBoxButtons.OK, MessageBoxIcon.Warning);

@@ -19,6 +19,37 @@ namespace MunicipalDiscount.Classes
     {
         public const int MaxDays = 8;
 
+        // At most once a week (user, 2026-10-10). The date is shared with
+        // MonicipalYBD's BackupStatus for this Windows user (same file), so the
+        // two apps together remind once a week, not once each.
+        private const int ShowEveryDays = 7;
+        private static string ShownFile => System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MunicipalApps", "last-backup-warning.txt");
+
+        /// <summary>The warning to show at login now, or null (none, or shown this week).</summary>
+        public static string WarningForLogin()
+        {
+            try
+            {
+                if (System.IO.File.Exists(ShownFile) &&
+                    DateTime.TryParse(System.IO.File.ReadAllText(ShownFile).Trim(),
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None, out var last) &&
+                    (DateTime.Today - last.Date).TotalDays < ShowEveryDays)
+                    return null;
+
+                string warning = Warning();
+                if (warning != null)
+                {
+                    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(ShownFile));
+                    System.IO.File.WriteAllText(ShownFile, DateTime.Today.ToString("yyyy-MM-dd"));
+                }
+                return warning;
+            }
+            catch { return null; }
+        }
+
         public static string Warning()
         {
             try
@@ -46,7 +77,7 @@ namespace MunicipalDiscount.Classes
                 if (lines.Count == 0) return null;
 
                 lines.Add("");
-                lines.Add("הגיבוי השבועי רץ אוטומטית מאפליקציית הגביה (משימה \"MonicipalYBD - גיבוי שבועי\").");
+                lines.Add("הגיבוי השבועי רץ אוטומטית מאפליקציית הגביה.");
                 return string.Join("\n", lines);
             }
             catch
