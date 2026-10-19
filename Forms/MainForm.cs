@@ -573,6 +573,119 @@ namespace MunicipalDiscount
         /// columns still hold what the system had. It opens by itself rather than
         /// waiting in a folder: nothing later in the year points any of this out.
         /// </summary>
+        /// <summary>
+        /// The billing import's second purpose (user, 2026-10-18): the new year's
+        /// first charges file opens the year in tbGOutstandingBalances, the
+        /// collection app's table (MonicipalYBD) — every asset of the file, all
+        /// kinds, not only מגורים. Reads #billing, the file as staged by
+        /// barButImportBilling, inside the import's transaction.
+        ///
+        /// ONCE A YEAR: only for a year that has no sizes in the table yet. Then
+        ///   - a charged asset (annual charge > 0) with no row for that client +
+        ///     asset + year gets one: kind, size, balance 0. A client who already
+        ///     has rows gets the names, spouse, address, phones, family and worker
+        ///     of his newest row; otherwise the file's full name goes in LastName.
+        ///     The Report 24 import then fills all the other columns as usual;
+        ///   - an existing row gets the file's kind and size.
+        /// Later charges imports of that year change nothing here. The Report 24
+        /// import never changes AssetType or AssetSize on an existing row, so they
+        /// stay the start-of-year values, and MonicipalYBD compares the bi-monthly
+        /// charges file with them to find kind and size changes.
+        ///
+        /// An asset listed twice for the same client and year (two kinds) keeps
+        /// the line with the highest charge. An asset number in scientific notation
+        /// is stored rounded, as Report 24 stores it. Lines whose client or asset
+        /// number still is not a whole number that fits the table are counted and
+        /// left out.
+        /// </summary>
+        private static void ApplyBillingToOutstanding(SqlConnection conn, SqlTransaction tx,
+            out int setRows, out int addedRows, out string yearsAlreadyDone, out int invalidRows)
+        {
+            using (var stage = new SqlCommand(@"
+                SELECT TRY_CAST(ClientNumber AS int) AS ClientNumber,
+                       -- a long number the municipal export wrote as 1.21932E+11
+                       -- becomes 121932000000 — the same rounded value Report 24
+                       -- already stored for it, so the two still match
+                       COALESCE(TRY_CAST(AssetNumber AS bigint),
+                                TRY_CAST(ROUND(TRY_CAST(AssetNumber AS float), 0) AS bigint)) AS AssetNumber,
+                       Year_, ClientName, AnnualBilling, AssetSize, AssetCode
+                INTO   #ob
+                FROM  (SELECT *, ROW_NUMBER() OVER (
+                                     PARTITION BY ClientNumber, AssetNumber, Year_
+                                     ORDER BY ISNULL(AnnualBilling, 0) DESC, ISNULL(AssetSize, 0) DESC) AS rn
+                       FROM #billing) x
+                WHERE  rn = 1;
+
+                DELETE FROM #ob WHERE ClientNumber IS NULL OR ClientNumber <= 0 OR AssetNumber IS NULL;
+                SELECT @@ROWCOUNT;", conn, tx))
+            {
+                invalidRows = Convert.ToInt32(stage.ExecuteScalar());
+            }
+
+            // Once a year: a year that already has sizes was opened by an earlier
+            // charges import — its lines are dropped here and nothing changes.
+            using (var done = new SqlCommand(@"
+                SELECT ISNULL(STRING_AGG(CAST(y.Year_ AS nvarchar(4)), N', '), N'')
+                FROM  (SELECT DISTINCT s.Year_ FROM #ob s
+                       WHERE EXISTS (SELECT 1 FROM tbGOutstandingBalances ob
+                                     WHERE ob.OriginalYear = s.Year_ AND ob.AssetSize IS NOT NULL)) y;
+
+                DELETE s FROM #ob s
+                WHERE  EXISTS (SELECT 1 FROM tbGOutstandingBalances ob
+                               WHERE ob.OriginalYear = s.Year_ AND ob.AssetSize IS NOT NULL);", conn, tx))
+            {
+                yearsAlreadyDone = done.ExecuteScalar() as string ?? "";
+            }
+
+            using (var set = new SqlCommand(@"
+                UPDATE ob
+                SET    ob.AssetType = ISNULL(s.AssetCode, ob.AssetType),
+                       ob.AssetSize = ISNULL(s.AssetSize, 0)
+                FROM   tbGOutstandingBalances ob
+                INNER  JOIN #ob s ON s.ClientNumber = ob.ClientNumber
+                                 AND s.AssetNumber  = ob.AssetNumber
+                                 AND s.Year_        = ob.OriginalYear
+                WHERE  ob.AssetSize IS NULL;", conn, tx))
+            {
+                setRows = set.ExecuteNonQuery();
+            }
+
+            using (var add = new SqlCommand(@"
+                INSERT INTO tbGOutstandingBalances
+                       (ClientNumber, ClieneWifeNumber, FirstName, LastName, CompanyName,
+                        ClientAddress, ZipCode, POBox, Area, ClientGroup,
+                        Phone1, Phone2, Phone3, Phone4, Family, UserId,
+                        AssetType, AssetNumber, OriginalYear, AssetSize)
+                SELECT s.ClientNumber,
+                       ISNULL(p.ClieneWifeNumber, 0),
+                       ISNULL(p.FirstName, N''),
+                       CASE WHEN p.ClientNumber IS NULL THEN LEFT(ISNULL(s.ClientName, N''), 100)
+                            ELSE p.LastName END,
+                       ISNULL(p.CompanyName, N''),
+                       p.ClientAddress,
+                       ISNULL(p.ZipCode, N''), ISNULL(p.POBox, N''), ISNULL(p.Area, N''),
+                       ISNULL(p.ClientGroup, N''),
+                       ISNULL(p.Phone1, N''), ISNULL(p.Phone2, N''), ISNULL(p.Phone3, N''), ISNULL(p.Phone4, N''),
+                       ISNULL(p.Family, N''), p.UserId,
+                       ISNULL(s.AssetCode, 0), s.AssetNumber, s.Year_, ISNULL(s.AssetSize, 0)
+                FROM   #ob s
+                -- the client's newest row, when he already has rows
+                OUTER  APPLY (SELECT TOP 1 ob.*
+                              FROM   tbGOutstandingBalances ob
+                              WHERE  ob.ClientNumber = s.ClientNumber
+                              ORDER  BY ob.OriginalYear DESC, ob.Id DESC) p
+                WHERE  s.AnnualBilling > 0
+                  AND  NOT EXISTS (SELECT 1 FROM tbGOutstandingBalances ob
+                                   WHERE ob.ClientNumber = s.ClientNumber
+                                     AND ob.AssetNumber  = s.AssetNumber
+                                     AND ob.OriginalYear = s.Year_);
+
+                DROP TABLE #ob;", conn, tx))
+            {
+                addedRows = add.ExecuteNonQuery();
+            }
+        }
+
         private void SaveBillingBlankValues(DataTable rows)
         {
             try
@@ -1822,6 +1935,8 @@ namespace MunicipalDiscount
                 int newClients = 0, createdRows = 0, updatedRows = 0, invalidRows = 0;
                 int assetsRepaired = 0, assetsStillSuspect = 0, assetCodeRows = 0;
                 int skippedOtherCategory = 0, skippedUnknownKind = 0;
+                int obSet = 0, obAdded = 0, obInvalid = 0;
+                string obYearDone = "";
                 var notFoundRows = new System.Collections.Generic.List<(string assetNumber, decimal billing, decimal assetSize)>();
 
                 // Properties whose חיוב שנתי or גודל נכס is blank in the file. A blank
@@ -2018,6 +2133,15 @@ namespace MunicipalDiscount
                             {
                                 collapse.ExecuteNonQuery();
                             }
+
+                            // 00. tbGOutstandingBalances (the collection app's table) —
+                            //     EVERY line of the file, before 0a drops all but
+                            //     מגורים. The year's first charges import records each
+                            //     asset's kind and size there once, so a later charges
+                            //     file can be compared with them (MonicipalYBD finds
+                            //     kind / size changes). User, 2026-10-18.
+                            ApplyBillingToOutstanding(conn, tx, out obSet, out obAdded,
+                                                      out obYearDone, out obInvalid);
 
                             // 0a. only מגורים. The kind code is matched against
                             //     tbGAssetKinds, and everything else — מסחר, תעשיה,
@@ -2272,7 +2396,14 @@ namespace MunicipalDiscount
                     $"נכסים שאינם מגורים — לא נקלטו: {skippedOtherCategory}\n" +
                     $"נכסים ללא סיווג — לא נקלטו: {skippedUnknownKind}\n" +
                     $"ללא מספר לקוח ולא נמצאו: {notFoundRows.Count} (נשמרו לקובץ)\n" +
-                    $"ערכים חסרים ושינויים: {blankValueRows.Rows.Count} (נשמרו לקובץ שנפתח)",
+                    $"ערכים חסרים ושינויים: {blankValueRows.Rows.Count} (נשמרו לקובץ שנפתח)\n\n" +
+                    $"טבלת החייבים — פתיחת השנה (סוג וגודל נכס לבדיקת שינויים):\n" +
+                    (obYearDone.Length > 0
+                        ? $"שנת {obYearDone} כבר נפתחה בקליטה הראשונה של השנה — לא שונה דבר\n"
+                        : "") +
+                    $"נוספו שורות לנכסים מחויבים: {obAdded}\n" +
+                    $"נקבעו סוג וגודל בשורות קיימות: {obSet}\n" +
+                    $"שורות שלא ניתן לקלוט (מספר לקוח/נכס לא תקין): {obInvalid}",
                     "הצלחה", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
