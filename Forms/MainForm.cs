@@ -637,6 +637,18 @@ namespace MunicipalDiscount
                 yearsAlreadyDone = done.ExecuteScalar() as string ?? "";
             }
 
+            // A new year opens: the kind / size changes approved in MonicipalYBD
+            // (tbGChargeChangeApprovals, screen "השוואת חיוב – שינויי סוג וגודל")
+            // belong to the earlier years — every year starts with none.
+            // Nothing happens when every year of the file was already open.
+            // User, 2026-10-23.
+            using (var clear = new SqlCommand(@"
+                DELETE FROM tbGChargeChangeApprovals
+                WHERE  Year_ < (SELECT MAX(Year_) FROM #ob);", conn, tx))
+            {
+                clear.ExecuteNonQuery();
+            }
+
             using (var set = new SqlCommand(@"
                 UPDATE ob
                 SET    ob.AssetType = ISNULL(s.AssetCode, ob.AssetType),
@@ -1971,6 +1983,7 @@ namespace MunicipalDiscount
                 int headerRow = ManParameters.BllingExcelHeaderRowNum;
                 int colAsset = -1, colBilling = -1, colAssetSize = -1;
                 int colClient = -1, colClientName = -1, colYear = -1, colAssetCode = -1;
+                int colPeriod = -1;
 
                 for (int col = 1; col <= lastCol; col++)
                 {
@@ -1982,6 +1995,7 @@ namespace MunicipalDiscount
                         case "מספר לקוח": colClient = col;     break;
                         case "שם לקוח":   colClientName = col; break;
                         case "שנה":       colYear = col;       break;
+                        case "תקופה":     colPeriod = col;     break;
 
                         // The property's kind code — tbGAssetKinds.Code (100 מגורים,
                         // 110 מחסן, 300 מסחר …). It is what says whether a property
@@ -2016,6 +2030,25 @@ namespace MunicipalDiscount
                         "שגיאה", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
+
+                // User, 2026-10-23: this import takes the year's FIRST charges
+                // file only — every line must be of period ("תקופה") 1. A later
+                // file would put sizes and kinds already changed during the year
+                // into tbYearlyDiscounts and open the year in
+                // tbGOutstandingBalances with them, so a file without the column,
+                // or with any line of another period, is refused before anything
+                // is written.
+                if (colPeriod == -1)
+                {
+                    XtraMessageBox.Show(
+                        "הקליטה נעצרה — לא נשמר דבר.\n\n" +
+                        "הקובץ חייב לכלול עמודת \"תקופה\".\n" +
+                        "נקלט רק קובץ החיוב הראשון של השנה (תקופה 1).",
+                        "שגיאה", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                int otherPeriodRows = 0;
+                string firstOtherPeriod = "";
 
                 // ── the sheet, as rows ready for the database ──
                 var staged = new DataTable();
@@ -2057,6 +2090,14 @@ namespace MunicipalDiscount
                         rowYear = ribbonYear;
                     }
 
+                    string period = Cell(row, colPeriod);
+                    if (!decimal.TryParse(period, out decimal periodNum) || periodNum != 1)
+                    {
+                        if (otherPeriodRows++ == 0)
+                            firstOtherPeriod = $"נכס {assetNumber}, שנה {rowYear}, תקופה {(period.Length > 0 ? period : "ריקה")}";
+                        continue;
+                    }
+
                     decimal.TryParse(Cell(row, colBilling), out decimal billing);
                     decimal.TryParse(Cell(row, colAssetSize), out decimal assetSize);
 
@@ -2078,6 +2119,17 @@ namespace MunicipalDiscount
                         clientNumber.Length > 0 ? clientNumber.Substring(0, Math.Min(20, clientNumber.Length)) : (object)DBNull.Value,
                         clientName.Length > 0 ? clientName.Substring(0, Math.Min(255, clientName.Length)) : (object)DBNull.Value,
                         rowYear, billing, assetSize, assetCode);
+                }
+
+                if (otherPeriodRows > 0)
+                {
+                    XtraMessageBox.Show(
+                        "הקליטה נעצרה — לא נשמר דבר.\n\n" +
+                        "נקלט רק קובץ החיוב הראשון של השנה: כל השורות חייבות להיות של תקופה 1.\n" +
+                        $"בקובץ {otherPeriodRows:N0} שורות של תקופה אחרת (הראשונה: {firstOtherPeriod}).\n\n" +
+                        "יש לבחור את קובץ החיוב הראשון של השנה.",
+                        "שגיאה", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
                 }
 
                 if (staged.Rows.Count == 0)
